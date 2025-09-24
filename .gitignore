@@ -31,5 +31,16 @@
 *.out
 *.app
 
-# Extra
+# Visual Studio auto-generated folder
 .vs/
+NFSHeatRaiseViaCTS/.vs/
+
+# Release folders
+NFSHeatRaiseViaCTS/Release/
+NFSHeatRaiseViaCTS/NFSC (WIP)/Release/
+NFSHeatRaiseViaCTS/NFSMW/Release/
+
+# Debug folders
+NFSHeatRaiseViaCTS/Debug/
+NFSHeatRaiseViaCTS/NFSC (WIP)/Debug/
+NFSHeatRaiseViaCTS/NFSMW/Debug/

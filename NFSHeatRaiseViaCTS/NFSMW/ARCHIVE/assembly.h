@@ -2,9 +2,10 @@
 
 #include "settings.h"
 
-DWORD sub_7C4B80 = 0x7C4B80; // address where the call instruction that calculates the heat level resides
-DWORD loc_71D31B = 0x71D31B; // address where the value calculated is stored at the heat level address
-DWORD loc_71D321 = 0x71D321; // address where the value calculated is stored at the heat level address
+constexpr DWORD loc_71D316 = 0x71D316; // address where the call instruction that calculates the heat level resides
+constexpr DWORD sub_7C4B80 = 0x7C4B80; // address where the prologue of the original heat level calculation function resides
+constexpr DWORD loc_71D31B = 0x71D31B; // address where the value calculated is stored at the heat level address
+constexpr DWORD loc_71D321 = 0x71D321; // address where the game proceeds after storing the calculated heat level
 
 void __declspec(naked) HeatLevelAbsoluteCalculationDetour()
 {
