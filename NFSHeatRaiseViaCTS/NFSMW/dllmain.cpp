@@ -41,7 +41,7 @@ DWORD WINAPI MainThread(LPVOID) {
 
     CalculationMode = iniReader.read<std::string>("CalculationMode", "Progressive");
 
-    float (*HeatCalcFunc)(uint32_t, float) = nullptr; // Declare a function pointer with the correct signature
+    float (*HeatCalcFunc)(uint32_t, float) = nullptr; // Function pointer to one of the heat level calculation ones
 
     if (CalculationMode == "progressive") {
         HeatCalcFunc = HeatLevelProgressiveCalculationDetour;
@@ -94,7 +94,7 @@ DWORD WINAPI MainThread(LPVOID) {
     *      the value fluctuates between 0 and 10 with random decimal points
     */
     while (true) {
-        if (readMemory<uint32_t>(gameStateAddress) == 6) { // if in pursuit
+        if (readMemory<uint32_t>(pursuitFlagAddress)) { // if in pursuit
             currentCTSValue = readMemory<uint32_t>(ctsAddress);
             currentHeatLevelValue = readMemory<float>(ptrToHeatLevel);
 
