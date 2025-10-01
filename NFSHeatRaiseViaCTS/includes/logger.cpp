@@ -1,38 +1,27 @@
-#include <Windows.h>
-
 #include <fstream>
+#include <iomanip>
+#include <sstream>
 #include <ctime>
 
 #include "logger.h"
-
-// Debug
-bool CreateLog{};
+#include "settings.h"
 
 std::string getTimestamp() {
-	time_t timestamp;
-	time(&timestamp);
-
-	std::string s = ctime(&timestamp);
-	s.pop_back(); // Remove the newline character added by ctime
-
-	return s;
+	std::time_t t = std::time(nullptr);
+	std::tm tm{};
+	localtime_s(&tm, &t); // Windows-safe version
+	std::ostringstream oss;
+	oss << std::put_time(&tm, "%Y-%m-%d %H:%M:%S");
+	return oss.str();
 }
 
-void Log(const std::string& message, bool displayTimestamp) {
+void Log(const std::string& message) {
 	if (CreateLog) {
 		std::ofstream logFile("NFSMWHeatRaiseViaCTS.log", std::ios::app);
 
-		if (!logFile.is_open()) {
-			MessageBoxA(nullptr, "Cannot open log file", "Log Error", MB_OK);
-			return;
-		}
-
 		if (logFile.is_open()) {
-			if (displayTimestamp)
-				logFile << '[' << getTimestamp() << "] ";
-				
+			logFile << '[' << getTimestamp() << "] ";
 			logFile << message << '\n';
-			logFile.close();
 		}
 	}
 }

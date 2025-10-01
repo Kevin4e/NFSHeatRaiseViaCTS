@@ -1,6 +1,6 @@
 #pragma once
 
-#include "pch.h"
+#include <cstdint>
 
 /// Reads a value of type T from the specified memory address
 template<typename T>

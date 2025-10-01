@@ -3,6 +3,9 @@
 #include <string>
 #include <cstdint>
 
+// Debug
+bool CreateLog;
+
 // Toggle
 bool Enable;
 
@@ -16,7 +19,7 @@ struct HeatThreshold {
 	uint32_t cts;
 };
 
-// these are the default values, can be changed in the ini, from 2 to 10, the 1 is the base level
+// These are the default values, can be modified in the ini, from 2 to 10, the 1 is the base level
 HeatThreshold heatsThresholds[] = {
 	{2.0f,  5000},
 	{3.0f,  15000},

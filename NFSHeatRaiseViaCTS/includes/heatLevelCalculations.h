@@ -1,51 +1,51 @@
 #pragma once
 
 #include "settings.h"
-#include <cstdint>
+#include <ranges>
+
+constexpr float MinHeatLevel = 1.0f;
+constexpr float MaxHeatLevel = 10.0f;
 
 float HeatLevelProgressiveCalculationDetour(uint32_t cts, float heatlvl) {
-	for (int i = 0; i < 9; ++i) {
-		if (cts < heatsThresholds[i].cts) {
+	for (const auto& ht : heatsThresholds) {
+		if (cts < ht.cts) {
 			if (PreventLowerHeat) {
-				if (heatlvl <= heatsThresholds[i].heatLevel) {
-					return heatsThresholds[i].heatLevel - 1.0f;
+				if (heatlvl <= ht.heatLevel) {
+					return ht.heatLevel - 1.0f;
 				}
 			}
 			else {
-				return heatsThresholds[i].heatLevel - 1.0f;
+				return ht.heatLevel - 1.0f;
 			}
 		}
 	}
 
-	return 10.0f; // Fallback if none of the conditions are met
+	return MaxHeatLevel; // Fallback if none of the conditions are met
 }
 
 float HeatLevelAbsoluteCalculationDetour(uint32_t cts, float heatlvl) {
-	for (int i = 8; i >= 0; --i) {
-		if (cts >= heatsThresholds[i].cts) {
+	for (const auto& ht : std::views::reverse(heatsThresholds)) {
+		if (cts >= ht.cts) {
 			if (PreventLowerHeat) {
-				if (heatlvl < heatsThresholds[i].heatLevel) {
-					return heatsThresholds[i].heatLevel;
-				}
-				else {
-					return heatlvl;
+				if (heatlvl < ht.heatLevel) {
+					return ht.heatLevel;
 				}
 			}
 			else {
-				return heatsThresholds[i].heatLevel;
+				return ht.heatLevel;
 			}
 		}
 	}
 
-	return heatlvl; // Fallback if none of the conditions are met
+	return PreventLowerHeat ? heatlvl : MinHeatLevel; // Fallback if none of the conditions are met
 }
 
 float HeatLevelCumulativeCalculationDetour(uint32_t cts, float heatlvl) {
-	for (int i = 8; i >= 0; --i) {
-		if (cts >= heatsThresholds[i].cts) {
-			return heatsThresholds[i].heatLevel;
+	for (const auto& ht : std::views::reverse(heatsThresholds)) {
+		if (cts >= ht.cts) {
+			return ht.heatLevel;
 		}
 	}
 
-	return 1.0f; // Fallback if none of the conditions are met
+	return MinHeatLevel; // Fallback if none of the conditions are met
 }

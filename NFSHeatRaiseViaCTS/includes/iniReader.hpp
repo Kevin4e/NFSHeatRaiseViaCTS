@@ -2,11 +2,9 @@
 
 // Personal INI file reader class
 // It doesn't support section headers
-// Commented out functions are not used in this project.
-// They are here for future reference
 
-#include "pch.h"
-
+#include <string>
+#include <cstdint>
 #include <fstream>
 #include <algorithm>
 #include <cctype>
@@ -15,7 +13,6 @@
 
 class IniReader {
 private:
-	std::string line;
 	std::unordered_map<std::string, std::string> data;
 
 	inline void trim(std::string& s) const {
@@ -26,7 +23,6 @@ private:
 		s.erase(std::find_if(s.rbegin(), s.rend(), [](unsigned char ch) { return !std::isspace(ch); }).base(), s.end());
 	}
 
-	// Remove inline comments from a line
 	inline void removeInlineComment(std::string& s) const {
 		for (int i = 0; i < s.length(); ++i) {
 			if (s.compare(i, 2, "//") == 0 || s[i] == ';' || s[i] == '#') {
@@ -36,11 +32,11 @@ private:
 		}
 	}
 
-	inline bool findKey(const std::string& key) {
+	inline bool findKey(const std::string& key, std::string& outValue) const {
 		auto it = data.find(key);
 
 		if (it != data.end()) {
-			line = it->second;
+			outValue = it->second;
 			return true;
 		}
 
@@ -48,8 +44,10 @@ private:
 	}
 
 public:
+	// Extracts all the keys found and their values
 	IniReader(const std::string& filename) {
 		std::ifstream file(filename);
+		std::string line;
 
 		while (std::getline(file, line)) {
 			size_t pos = line.find('=');
@@ -69,24 +67,27 @@ public:
 	}
 
 	template<typename T>
-	T read(const std::string& key, T defaultValue) {
-		if (!findKey(key)) return defaultValue;
+	T read(const std::string& key, T defaultValue, bool toLowerString = true) const {
+		std::string outValue;
+		if (!findKey(key, outValue)) return defaultValue;
 
 		try {
-			//if constexpr (std::is_same_v<T, int8_t>) return static_cast<int8_t>(std::stoi(line));
-			//if constexpr (std::is_same_v<T, uint8_t>) return static_cast<uint8_t>(std::stoi(line));
-			//if constexpr (std::is_same_v<T, int16_t>) return static_cast<int16_t>(std::stoi(line));
-			//if constexpr (std::is_same_v<T, uint16_t>) return static_cast<uint16_t>(std::stoi(line));
-			if constexpr (std::is_same_v<T, int32_t>) return std::stoi(line);
-			if constexpr (std::is_same_v<T, uint32_t>) return std::stoul(line);
-			//if constexpr (std::is_same_v<T, int64_t>) return std::stoll(line);
-			//if constexpr (std::is_same_v<T, uint64_t>) return std::stoull(line);
-			if constexpr (std::is_same_v<T, float>) return std::stof(line);
-			//if constexpr (std::is_same_v<T, double>) return std::stod(line);
-			//if constexpr (std::is_same_v<T, char>) return line.empty() ? defaultValue : line[0];
+			if constexpr (std::is_same_v<T, int8_t>) return static_cast<int8_t>(std::stoi(outValue));
+			if constexpr (std::is_same_v<T, uint8_t>) return static_cast<uint8_t>(std::stoi(outValue));
+			if constexpr (std::is_same_v<T, int16_t>) return static_cast<int16_t>(std::stoi(outValue));
+			if constexpr (std::is_same_v<T, uint16_t>) return static_cast<uint16_t>(std::stoi(outValue));
+			if constexpr (std::is_same_v<T, int32_t>) return std::stoi(outValue);
+			if constexpr (std::is_same_v<T, uint32_t>) return std::stoul(outValue);
+			if constexpr (std::is_same_v<T, int64_t>) return std::stoll(outValue);
+			if constexpr (std::is_same_v<T, uint64_t>) return std::stoull(outValue);
+			if constexpr (std::is_same_v<T, float>) return std::stof(outValue);
+			if constexpr (std::is_same_v<T, double>) return std::stod(outValue);
+			if constexpr (std::is_same_v<T, char>) return outValue.empty() ? defaultValue : outValue[0];
 			if constexpr (std::is_same_v<T, std::string>) {
-				std::transform(line.begin(), line.end(), line.begin(), ::tolower);
-				return line;
+				if (toLowerString)
+					std::transform(outValue.begin(), outValue.end(), outValue.begin(), [](unsigned char c) { return std::tolower(c); });
+
+				return outValue;
 			}
 		}
 		catch (...) {
