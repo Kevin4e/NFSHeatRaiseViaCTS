@@ -111,13 +111,13 @@ DWORD WINAPI MainThread(LPVOID) {
 
 extern "C" __declspec(dllexport) void InitializeASI() {
     // Check if .exe file is compatible - Thanks to thelink2012 and MWisBest
-    // Simplified condition for clarity; logic unchanged, there was a redundant operation
+    // Simplified condition for clarity; logic unchanged, there were a few redundant operations
 
     uintptr_t base = (uintptr_t)GetModuleHandleA(nullptr);
     IMAGE_DOS_HEADER* dos = (IMAGE_DOS_HEADER*)(base);
     IMAGE_NT_HEADERS* nt = (IMAGE_NT_HEADERS*)(base + dos->e_lfanew);
 
-    if ((nt->OptionalHeader.AddressOfEntryPoint + 0x400000) == 0x7C4040) // Check if .exe file is compatible - Thanks to thelink2012 and MWisBest
+    if (nt->OptionalHeader.AddressOfEntryPoint == 0x3C4040)
         CreateThread(nullptr, 0, MainThread, nullptr, 0, nullptr);
 
     else
