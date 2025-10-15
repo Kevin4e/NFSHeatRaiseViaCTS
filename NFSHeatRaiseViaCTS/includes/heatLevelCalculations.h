@@ -1,50 +1,55 @@
 #pragma once
 
+void msgbox(std::string s) {
+	MessageBoxA(nullptr, s.c_str(), "Debug", NULL);
+}
+
 #include "settings.h"
-#include <ranges>
 
-constexpr float MinHeatLevel = 1.0f;
-constexpr float MaxHeatLevel = 10.0f;
+extern int lowestIndex;
+extern int highestIndex;
 
-float HeatLevelProgressiveCalculationDetour(uint32_t cts, float heatlvl) {
-	for (const auto& ht : heatsThresholds) {
-		if (cts < ht.cts) {
-			if (PreventLowerHeat) {
-				if (heatlvl <= ht.heatLevel) {
-					return ht.heatLevel - 1.0f;
-				}
-			}
-			else {
-				return ht.heatLevel - 1.0f;
-			}
-		}
+float HeatLevelProgressiveCalculationDetour(uint32_t cts, uint32_t heatlvl) {
+	for (int i = lowestIndex; i < highestIndex; ++i) {
+		const auto& ht = heatsThresholds[i];
+
+		if (cts < ht.cts && heatlvl < ht.heatLevel)
+			return ht.heatLevel - 1.0f;
 	}
 
 	return MaxHeatLevel; // Fallback if none of the conditions are met
 }
 
-float HeatLevelAbsoluteCalculationDetour(uint32_t cts, float heatlvl) {
-	for (const auto& ht : std::views::reverse(heatsThresholds)) {
-		if (cts >= ht.cts) {
-			if (PreventLowerHeat) {
-				if (heatlvl < ht.heatLevel) {
-					return ht.heatLevel;
-				}
-			}
-			else {
-				return ht.heatLevel;
-			}
-		}
+float HeatLevelProgressiveCalculationDetour_NO_PD(uint32_t cts, uint32_t) {
+	for (int i = lowestIndex; i < highestIndex; ++i) {
+		const auto& ht = heatsThresholds[i];
+
+		if (cts < ht.cts)
+			return ht.heatLevel - 1.0f;
 	}
 
-	return PreventLowerHeat ? heatlvl : MinHeatLevel; // Fallback if none of the conditions are met
+	return MaxHeatLevel; // Fallback if none of the conditions are met
 }
 
-float HeatLevelCumulativeCalculationDetour(uint32_t cts, float heatlvl) {
-	for (const auto& ht : std::views::reverse(heatsThresholds)) {
-		if (cts >= ht.cts) {
+float HeatLevelAbsoluteCalculationDetour(uint32_t cts, uint32_t heatlvl) {
+	for (int i = highestIndex - 1; i >= lowestIndex; --i) {
+		const auto& ht = heatsThresholds[i];
+
+		if (cts >= ht.cts && heatlvl < ht.heatLevel)
 			return ht.heatLevel;
-		}
+	}
+
+	//msgbox(std::to_string(heatlvl));
+
+	return heatlvl; // Fallback if none of the conditions are met
+}
+
+float HeatLevelAbsoluteCalculationDetour_NO_PD(uint32_t cts, uint32_t) {
+	for (int i = highestIndex - 1; i >= lowestIndex; --i) {
+		const auto& ht = heatsThresholds[i];
+
+		if (cts >= ht.cts)
+			return ht.heatLevel;
 	}
 
 	return MinHeatLevel; // Fallback if none of the conditions are met

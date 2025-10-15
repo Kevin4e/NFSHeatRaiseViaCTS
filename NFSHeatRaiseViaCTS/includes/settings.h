@@ -1,17 +1,17 @@
 #pragma once
 
-#include <string>
 #include <cstdint>
-
-// Debug
-bool CreateLog;
 
 // Toggle
 bool Enable;
 
 // CalculationMode
-std::string CalculationMode;
+int32_t CalculationMode;
 bool PreventLowerHeat;
+
+// Limits
+float MaxHeatLevel;
+float MinHeatLevel;
 
 // Thresholds
 struct HeatThreshold {

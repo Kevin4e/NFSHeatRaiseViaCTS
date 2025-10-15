@@ -11,7 +11,7 @@
 #include <unordered_map>
 #include <sstream>
 
-class IniReader {
+class INIReader {
 private:
 	std::unordered_map<std::string, std::string> data;
 
@@ -45,7 +45,7 @@ private:
 
 public:
 	// Extracts all the keys found and their values
-	IniReader(const std::string& filename) {
+	INIReader(const std::string& filename) {
 		std::ifstream file(filename);
 		std::string line;
 
