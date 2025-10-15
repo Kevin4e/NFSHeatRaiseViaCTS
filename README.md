@@ -25,4 +25,4 @@ You can customize these thresholds by editing the corresponding .ini file:
 - You can use my mod on your modpack as long as you ask me privately.
 
 ## Troubleshooting
-If you experience any wrong results or unexpected situations, before you submit an issue, please check all the notes.
+If you experience any unexpected behaviors, please submit an issue [here](https://github.com/Kevin4e/NFSHeatRaiseViaCTS/issues).
