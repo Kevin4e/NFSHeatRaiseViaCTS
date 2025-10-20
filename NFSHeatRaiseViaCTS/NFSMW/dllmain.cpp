@@ -1,13 +1,17 @@
+#define WIN32_LEAN_AND_MEAN
+
 #include <windows.h>
 #include <cstdint>
 #include <algorithm>
 #include <fstream>
 #include <string>
+#include <thread>
 
 #include "../includes/iniReader.hpp"
 #include "../includes/heatLevelCalculations.h"
 #include "../includes/settings.h"
-#include "../includes/helpers.h"
+#include "../includes/memPatcher.h"
+#include "../includes/logger.hpp"
 
 #include "assembly.h"
 
@@ -15,7 +19,7 @@ constexpr DWORD setHeatLevelAddress = 0x00612660;  // Instruction address of the
 constexpr DWORD baseAddress = 0x00400000;          // 'speed.exe' base address
 constexpr DWORD pursuitFlagAddress = 0x0092FD34;   // Boolean flag (0 or 1) indicating if player is in a pursuit
 constexpr DWORD ctsAddress = 0x0091D3F0;           // CTS value address
-constexpr DWORD gameStateAddress = 0x00925E90;     // Game state address (3 = Front-End, 4 & 5 = Loading Screen, 6 = Free Roam)
+constexpr DWORD openWorldFlagAddress = 0x0092D884; // Boolean flag (0 or 1) indicating if player is in the open world
 
 // Heat level stable pointer offsets
 constexpr DWORD moduleOffset = 0x00593CC8;         // Module offset
@@ -25,50 +29,57 @@ void (*const setHeat)(float) = reinterpret_cast<void(*)(float)>(setHeatLevelAddr
 
 float (*HeatCalcFunc)(uint32_t, uint32_t) = nullptr; // Function pointer to one of the heat level calculation ones
 
-int lowestIndex;
-int highestIndex;
-
-constexpr const char* readableIniFiles[2] = {
-    "NFSHeatRaiseViaCTSThresholds.ini",
-    "NFSMWHeatRaiseViaCTSThresholds.ini"
+constexpr const char* readableIniFiles[] = {
+    "NFSHeatRaiseViaCTSConfiguration.ini",
+    "NFSMWHeatRaiseViaCTSConfiguration.ini"
 };
 
-DWORD WINAPI MainThread(LPVOID) {
-    while (readMemory<uint32_t>(gameStateAddress) != 6) // Wait until we're in free roam once to get heat level pointer
+void MainThread() {
+    while (!MemPatcher::readMemory<uint32_t>(openWorldFlagAddress)) // Wait until we're in the open world once to get heat level pointers
         Sleep(100);
 
-    const DWORD ptrToHeatLevel = readMemory<DWORD>(baseAddress + moduleOffset) + finalOffset;
+    const DWORD ptrToHeatLevel = MemPatcher::readMemory<DWORD>(baseAddress + moduleOffset) + finalOffset; // Address of integer heat level
+	const DWORD ptrToHeatLevelFloat = MemPatcher::readMemory<DWORD>(MemPatcher::readMemory<DWORD>(MemPatcher::readMemory<DWORD>(0x9352B0) + 0x14) + 0x24) + 0x1C; // Address of decimal heat level (HUD)
 
-	uint32_t previousCTS = 0;
-    float previousHeatLevel = 0;
+	uint32_t previousCTSValue = 0;
 
     while (true) {
-        if (readMemory<uint32_t>(pursuitFlagAddress)) { // if in pursuit
-            const uint32_t currentCTSValue = readMemory<uint32_t>(ctsAddress);
-            const uint32_t currentHeatLevelValue = readMemory<uint32_t>(ptrToHeatLevel);
+        if (MemPatcher::readMemory<uint32_t>(pursuitFlagAddress)) { // if in pursuit
 
-            if (previousCTS != currentCTSValue) {
-                previousCTS = currentCTSValue;
+            while (MemPatcher::readMemory<uint32_t>(ptrToHeatLevel) == 0) // wait until heat level (integer) is initialized
+                Sleep(30);
 
-				const float newHeatLevel = HeatCalcFunc(currentCTSValue, currentHeatLevelValue);
+			float tmp = MemPatcher::readMemory<float>(ptrToHeatLevelFloat);
 
-                if (newHeatLevel != previousHeatLevel) {
-                    previousHeatLevel = newHeatLevel;
-                    setHeat(newHeatLevel);
+            if (tmp < MinHeatLevel) // if heat level is below minimum
+                setHeat(MinHeatLevel); // set heat level to minimum
+
+			else if (std::truncf(tmp) < MinHeatLevel) // if truncating the decimal part makes heat level go below minimum
+                setHeat(MinHeatLevel); // set heat level to minimum
+
+            else
+                MemPatcher::writeMemory<float>(ptrToHeatLevelFloat, std::truncf(tmp)); // trunc decimal part of the heat level in the HUD
+
+            while (MemPatcher::readMemory<uint32_t>(pursuitFlagAddress)) {
+                const uint32_t currentCTSValue = MemPatcher::readMemory<uint32_t>(ctsAddress);
+                const uint32_t currentHeatLevelValue = MemPatcher::readMemory<uint32_t>(ptrToHeatLevel);
+
+                if (previousCTSValue != currentCTSValue) {
+                    previousCTSValue = currentCTSValue;
+
+                    const float newHeatLevelCalculated = HeatCalcFunc(currentCTSValue, currentHeatLevelValue);
+
+                    if (newHeatLevelCalculated != currentHeatLevelValue) {
+						setHeat(newHeatLevelCalculated); // Make sure to set a new heat level only if CTS and heat level calculation changed
+                    }
                 }
-                else {
-                    setHeat(currentHeatLevelValue);
-                }
+
+                Sleep(30);
             }
-            else {
-                setHeat(currentHeatLevelValue);
-            } 
         }
 
-        Sleep(50);
+        Sleep(100);
     }
-
-    return 0;
 }
 
 // Read INI, configure everything, start MainThread()
@@ -82,26 +93,35 @@ void Setup() {
 
     // INI reader object
     INIReader iniReader(*it);
-        
+    
+	// Logger object
+    Logger logger("NFSMWHeatRaiseViaCTSDebug.log");
+
     // Read values from the INI
     {
         Enable = iniReader.read<int32_t>("Enable", 0);
 
-        if (!Enable)
+        if (!Enable) {
+            logger.log("NFSMW Heat Raise Via CTS script disabled. Exiting...");
             return;
+        }
 
         CalculationMode = iniReader.read<int32_t>("CalculationMode", 0);
 
-        if (CalculationMode < 0 || CalculationMode > 2)
-			return; // End if calculation mode is out of bounds
+        if (CalculationMode < 0 || CalculationMode > 2) {
+            logger.log("CalculationMode value is out of bounds (0-2). Exiting...");
+            return;
+        }
 
         PreventLowerHeat = iniReader.read<int32_t>("PreventLowerHeat", 0);
 
         MaxHeatLevel = iniReader.read<float>("MaxHeatLevel", 10.0f);
         MinHeatLevel = iniReader.read<float>("MinHeatLevel", 1.0f);
 
-        if (MaxHeatLevel < 1.0f || MaxHeatLevel > 10.0f || (MinHeatLevel > MaxHeatLevel))
-            return; // End if heat levels are out of bounds or minimum is greater than maximum
+        if (MaxHeatLevel < 1.0f || MaxHeatLevel > 10.0f || (MinHeatLevel > MaxHeatLevel)) {
+            logger.log("Heat level limits are out of bounds or minimum is greater than maximum. Exiting...");
+            return;
+        }
 
         for (int i = 0; i < 9; ++i)
             heatsThresholds[i].cts = iniReader.read<uint32_t>("ThresholdForHeat" + std::to_string(i + 2), heatsThresholds[i].cts);
@@ -134,42 +154,44 @@ void Setup() {
         highestIndex = MaxHeatLevel - 1;
         lowestIndex = MinHeatLevel - 1;
 
+        MemPatcher::makeNOP(0x409326, 3); // NOP out the instruction that updates the decimal part of the heat level in the HUD
+
         /*
-         * Respectively:
+         *  Respectively:
          *
-         *  - Prepares the game for Ultimate force heat level hack;
-         *  - Sets the max heat level recognizable by Front-End
+         *   - Prepares the game for Ultimate force heat level hack;
+         *   - Sets the max heat level recognizable by Front-End
          *
          *  Credits to ExOpts Team
          */
 
-        makeJMP(0x443DC3, HeatLevelsCodeCave);
+        MemPatcher::makeJMP(0x443DC3, HeatLevelsCodeCave);
 
         // CustomizeMeter::Init
-        writeMemory<float>(0x7BB502, MaxHeatLevel); // CustomizeCategoryScreen
-        writeMemory<float>(0x7B1387, MaxHeatLevel); // CustomizationScreenHelper
-        writeMemory<float>(0x7B0C89, MaxHeatLevel); // CustomizeShoppingCart::Setup
-        writeMemory<float>(0x7B4D7C, MaxHeatLevel); // UIQRCarSelect::InitStatsSliders
+        MemPatcher::writeMemory<float>(0x7BB502, MaxHeatLevel); // CustomizeCategoryScreen
+        MemPatcher::writeMemory<float>(0x7B1387, MaxHeatLevel); // CustomizationScreenHelper
+        MemPatcher::writeMemory<float>(0x7B0C89, MaxHeatLevel); // CustomizeShoppingCart::Setup
+        MemPatcher::writeMemory<float>(0x7B4D7C, MaxHeatLevel); // UIQRCarSelect::InitStatsSliders
 
         // SetHeatLevel
-        writeMemory<const float*>(0x435079, &MaxHeatLevel); // AIVehicleHuman::~AIVehicleHuman
-        writeMemory<float>(0x435088, MaxHeatLevel);
+        MemPatcher::writeMemory<float*>(0x435079, &MaxHeatLevel); // AIVehicleHuman::~AIVehicleHuman
+        MemPatcher::writeMemory<float>(0x435088, MaxHeatLevel);
 
         // Safehouse car select icon stuff (HEAT_X%.0f)
-        writeMemory<const float*>(0x7A5B03, &MaxHeatLevel);
-        writeMemory<const float*>(0x7A5B12, &MaxHeatLevel);
+        MemPatcher::writeMemory<float*>(0x7A5B03, &MaxHeatLevel);
+        MemPatcher::writeMemory<float*>(0x7A5B12, &MaxHeatLevel);
     }
 
-    CreateThread(nullptr, 0, MainThread, nullptr, 0, nullptr);
+	logger.log("NFSMW Heat Raise Via CTS script initialized successfully.");
+
+    std::thread(MainThread).detach();
 }
 
 extern "C" __declspec(dllexport) void InitializeASI() {
     // Check if .exe file is compatible - Thanks to thelink2012 and MWisBest
-    // Simplified condition for clarity; logic unchanged, there were a few redundant operations
+    // A few tweaks and simplified condition for clarity; logic unchanged, there were a few redundant operations
 
-    uintptr_t base = (uintptr_t)GetModuleHandleA(nullptr);
-    IMAGE_DOS_HEADER* dos = (IMAGE_DOS_HEADER*)(base);
-    IMAGE_NT_HEADERS* nt = (IMAGE_NT_HEADERS*)(base + dos->e_lfanew);
+    IMAGE_NT_HEADERS* nt = reinterpret_cast<IMAGE_NT_HEADERS*>(0x400108);
 
     if (nt->OptionalHeader.AddressOfEntryPoint == 0x3C4040)
         Setup();
@@ -178,8 +200,9 @@ extern "C" __declspec(dllexport) void InitializeASI() {
         MessageBoxA(nullptr, "This .exe is not supported.\nPlease use v1.3 speed.exe (5.75 MB (6.029.312 bytes)).", "NFSMW Heat Raise via CTS by Kevin4e", MB_ICONERROR);
 }
 
-BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserved) {
+BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID /*lpReserved*/) {
     if (ul_reason_for_call == DLL_PROCESS_ATTACH)
         DisableThreadLibraryCalls(hModule);
+
     return TRUE;
 }

@@ -1,7 +1,11 @@
 #pragma once
 
-// Personal INI file reader class
-// It doesn't support section headers
+/*
+ *  Personal INI file reader class
+ *  Author: Kevin4e
+ * 
+ *  It doesn't support section headers
+ */ 
 
 #include <string>
 #include <cstdint>
@@ -84,8 +88,11 @@ public:
 			if constexpr (std::is_same_v<T, double>) return std::stod(outValue);
 			if constexpr (std::is_same_v<T, char>) return outValue.empty() ? defaultValue : outValue[0];
 			if constexpr (std::is_same_v<T, std::string>) {
-				if (toLowerString)
-					std::transform(outValue.begin(), outValue.end(), outValue.begin(), [](unsigned char c) { return std::tolower(c); });
+				if (toLowerString) {
+					bool hasUpper = std::any_of(outValue.begin(), outValue.end(), [](unsigned char c) { return std::isupper(c); });
+					if (hasUpper)
+						std::transform(outValue.begin(), outValue.end(), outValue.begin(), [](unsigned char c) { return std::tolower(c); });
+				}
 
 				return outValue;
 			}

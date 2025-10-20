@@ -3,9 +3,6 @@
 #include <windows.h>
 #include "../includes/settings.h"
 
-extern float MaxHeatLevel;
-extern float MinHeatLevel;
-
 constexpr DWORD HeatLevelsCodeCaveExit = 0x443DC9;
 
 void __declspec(naked) HeatLevelsCodeCave()
