@@ -1,4 +1,5 @@
 # NFS Heat Raise Via CTS
+<img width="4000" height="2250" alt="HEAT RAISE VIA CTS thumbnail (1)" src="https://github.com/user-attachments/assets/3f494178-e257-430e-9ad2-f7b6b563694c" />
 
 ## Installation
 1. Download the latest version of the [Ultimate ASI Loader](https://github.com/ThirteenAG/Ultimate-ASI-Loader).
