@@ -46,9 +46,8 @@ You can customize these thresholds by editing the corresponding .ini file:
 - **Kevin4e** - Author of the mod.
 - **ExOpts Team** - Mainly for discovering the instruction address to directly set a heat level, which simplified the development.
 
-## Permissions
-- You're **NOT** allowed to re-upload my mod anywhere else without my permission.
-- You can use my mod on your modpack **as long as** you ask me privately.
+## License
+- See [LICENSE](LICENSE)
 
 ## Troubleshooting
 If you experience any unexpected behaviors, please submit an issue [here](https://github.com/Kevin4e/NFSHeatRaiseViaCTS/issues).
